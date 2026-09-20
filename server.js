@@ -23,9 +23,9 @@ const ai = new GoogleGenAI({
 });
 
 
-/* ================================
-   GOOGLE FORM QUESTION DETECTOR
-================================ */
+/* ============================
+   GOOGLE FORM
+============================ */
 
 app.post("/api/form-questions", async (req, res) => {
   try {
@@ -47,15 +47,12 @@ app.post("/api/form-questions", async (req, res) => {
       });
     }
 
-    const allowedHost =
-  url.hostname === "docs.google.com" ||
-  url.hostname === "forms.gle";
+    const isGoogleForm =
+      url.hostname === "docs.google.com" ||
+      url.hostname === "forms.gle" ||
+      url.hostname === "www.docs.google.com";
 
-if (!allowedHost) {
-  return res.status(400).json({
-    error: "Please enter a valid Google Form link."
-  });
-}
+    if (!isGoogleForm) {
       return res.status(400).json({
         error: "Please enter a valid Google Form link."
       });
@@ -63,6 +60,7 @@ if (!allowedHost) {
 
     const response = await fetch(formUrl, {
       method: "GET",
+      redirect: "follow",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36"
@@ -75,47 +73,40 @@ if (!allowedHost) {
       );
     }
 
+    const finalUrl = response.url;
     const html = await response.text();
+
+    /*
+      First try to extract question-like text
+      from common Google Forms HTML patterns.
+    */
 
     const questions = [];
 
-    /* --------------------------------
-       Method 1: aria-label extraction
-    -------------------------------- */
+    const patterns = [
+      /aria-label="([^"]+)"/gi,
+      /data-value="([^"]+)"/gi,
+      /data-params="([^"]+)"/gi
+    ];
 
-    const ariaRegex =
-      /aria-label="([^"]+)"/gi;
+    for (const pattern of patterns) {
+      let match;
 
-    let match;
+      while ((match = pattern.exec(html)) !== null) {
+        let text = match[1];
 
-    while ((match = ariaRegex.exec(html)) !== null) {
-      const text = cleanText(match[1]);
+        text = decodeHtml(text);
+        text = cleanText(text);
 
-      if (isPossibleQuestion(text)) {
-        addQuestion(questions, text);
+        if (isQuestion(text)) {
+          addQuestion(questions, text);
+        }
       }
     }
 
-
-    /* --------------------------------
-       Method 2: data-value extraction
-    -------------------------------- */
-
-    const dataRegex =
-      /data-value="([^"]+)"/gi;
-
-    while ((match = dataRegex.exec(html)) !== null) {
-      const text = cleanText(match[1]);
-
-      if (isPossibleQuestion(text)) {
-        addQuestion(questions, text);
-      }
-    }
-
-
-    /* --------------------------------
-       Method 3: HTML text extraction
-    -------------------------------- */
+    /*
+      Backup: extract readable HTML text.
+    */
 
     if (questions.length === 0) {
 
@@ -128,38 +119,33 @@ if (!allowedHost) {
         .replace(/&quot;/gi, '"')
         .replace(/&#39;/gi, "'");
 
-      const lines = textOnly
-        .split(/\r?\n| {2,}/)
+      const pieces = textOnly
+        .split(/\r?\n/)
         .map(cleanText)
-        .filter(isPossibleQuestion);
+        .filter(isQuestion);
 
-      for (const line of lines) {
-        addQuestion(questions, line);
+      for (const piece of pieces) {
+        addQuestion(questions, piece);
       }
     }
 
-
     const finalQuestions = questions.slice(0, 20);
-
 
     if (finalQuestions.length === 0) {
       return res.status(422).json({
         error:
-          "Questions could not be detected. The form may require special access or Google has changed its page format. You can still paste the questions manually or upload an image."
+          "Google Form opened successfully, but questions could not be detected. You can still paste the questions manually or upload an image."
       });
     }
 
-
     res.json({
-      questions: finalQuestions
+      questions: finalQuestions,
+      formUrl: finalUrl
     });
 
   } catch (error) {
 
-    console.error(
-      "Google Form error:",
-      error
-    );
+    console.error("Google Form error:", error);
 
     res.status(500).json({
       error:
@@ -172,16 +158,26 @@ if (!allowedHost) {
 
 function cleanText(text) {
   return String(text || "")
-    .replace(/\\u003c/g, "<")
-    .replace(/\\u003e/g, ">")
+    .replace(/\\u003c/gi, "<")
+    .replace(/\\u003e/gi, ">")
     .replace(/\\"/g, '"')
-    .replace(/\\'/g, "'")
+    .replace(/\\n/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 
-function isPossibleQuestion(text) {
+function decodeHtml(text) {
+  return String(text || "")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+
+function isQuestion(text) {
 
   if (!text) return false;
 
@@ -202,7 +198,10 @@ function isPossibleQuestion(text) {
     "sign in",
     "sign out",
     "next",
-    "back"
+    "back",
+    "previous",
+    "this form was created",
+    "loading"
   ];
 
   for (const word of ignored) {
@@ -224,22 +223,21 @@ function addQuestion(array, text) {
 
   if (!normalized) return;
 
-  const alreadyExists =
-    array.some(
-      item =>
-        item.toLowerCase() ===
-        normalized.toLowerCase()
-    );
+  const exists = array.some(
+    item =>
+      item.toLowerCase() ===
+      normalized.toLowerCase()
+  );
 
-  if (!alreadyExists) {
+  if (!exists) {
     array.push(normalized);
   }
 }
 
 
-/* ================================
-   C PROGRAM GENERATOR
-================================ */
+/* ============================
+   GENERATE C PROGRAMS
+============================ */
 
 app.post(
   "/api/generate",
@@ -265,8 +263,7 @@ app.post(
 
       if (!studentId) {
         return res.status(400).json({
-          error:
-            "Please enter your Student ID."
+          error: "Please enter your Student ID."
         });
       }
 
@@ -288,8 +285,7 @@ Number of programs required: ${count}
 
 Generate exactly ${count} separate C programs based on the assignment questions.
 
-IMPORTANT RULES:
-
+Rules:
 - Use standard C only.
 - Every program must compile independently.
 - Every program must contain main().
@@ -297,18 +293,17 @@ IMPORTANT RULES:
 - Keep the code beginner-friendly.
 - Use simple first-year engineering level C.
 - Do not use C++.
-- Do not combine multiple questions into one program.
+- Do not combine questions.
 - Each question must have its own program.
 - Do not include Markdown code fences.
-- Do not include explanations inside the code.
+- Do not include unnecessary explanations.
 - Return exactly ${count} programs.
 
-For every program provide:
-
+For each program provide:
 1. question
 2. code
 
-The server will automatically create filenames:
+The server will create filenames:
 
 ${studentId}_1.c
 ${studentId}_2.c
@@ -333,9 +328,7 @@ ${questions}
         parts.push({
           inlineData: {
             data:
-              req.file.buffer.toString(
-                "base64"
-              ),
+              req.file.buffer.toString("base64"),
             mimeType:
               req.file.mimetype
           }
@@ -427,55 +420,44 @@ ${questions}
 
       if (
         !data.programs ||
-        !Array.isArray(
-          data.programs
-        )
+        !Array.isArray(data.programs)
       ) {
-
         throw new Error(
           "Invalid Gemini response."
         );
-
       }
 
 
       const programs =
         data.programs
           .slice(0, count)
-          .map(
-            (program, index) => ({
+          .map((program, index) => ({
 
-              filename:
-                `${studentId}_${index + 1}.c`,
+            filename:
+              `${studentId}_${index + 1}.c`,
 
-              question:
-                program.question ||
-                `Question ${index + 1}`,
+            question:
+              program.question ||
+              `Question ${index + 1}`,
 
-              code:
-                String(
-                  program.code || ""
-                ).trim()
+            code:
+              String(
+                program.code || ""
+              ).trim()
 
-            })
-          );
+          }));
 
 
-      if (
-        programs.length === 0
-      ) {
-
+      if (programs.length === 0) {
         throw new Error(
           "No programs were generated."
         );
-
       }
 
 
       res.json({
         programs
       });
-
 
     } catch (error) {
 
@@ -489,16 +471,14 @@ ${questions}
           error.message ||
           "Something went wrong."
       });
-
     }
-
   }
 );
 
 
-/* ================================
+/* ============================
    HOME PAGE
-================================ */
+============================ */
 
 app.get("/", (req, res) => {
 
@@ -512,9 +492,9 @@ app.get("/", (req, res) => {
 });
 
 
-/* ================================
+/* ============================
    START SERVER
-================================ */
+============================ */
 
 app.listen(
   PORT,
