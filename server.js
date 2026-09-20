@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import dotenv from "dotenv";
+import * as cheerio from "cheerio";
 import { GoogleGenAI, Type } from "@google/genai";
 
 dotenv.config();
@@ -22,11 +23,133 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
+
+/* =========================
+   GOOGLE FORM QUESTION DETECTOR
+========================= */
+
+app.post("/api/form-questions", async (req, res) => {
+  try {
+    const formUrl = (req.body.url || "").trim();
+
+    if (!formUrl) {
+      return res.status(400).json({
+        error: "Please enter a Google Form link."
+      });
+    }
+
+    const url = new URL(formUrl);
+
+    if (
+      url.hostname !== "docs.google.com" ||
+      !url.pathname.includes("/forms/")
+    ) {
+      return res.status(400).json({
+        error: "Please enter a valid Google Form link."
+      });
+    }
+
+    const response = await fetch(formUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Google Form could not be opened. HTTP ${response.status}`
+      );
+    }
+
+    const html = await response.text();
+
+    const $ = cheerio.load(html);
+
+    const questions = [];
+
+    /*
+      Google Forms contains question text in elements
+      with role="heading" / question related containers.
+    */
+
+    $("[role='heading']").each((i, el) => {
+      const text = $(el).text().trim();
+
+      if (
+        text &&
+        text.length > 2 &&
+        !questions.includes(text)
+      ) {
+        questions.push(text);
+      }
+    });
+
+    /*
+      Backup extraction from visible text.
+    */
+
+    if (questions.length === 0) {
+      $("div").each((i, el) => {
+        const text = $(el).text().trim();
+
+        if (
+          text &&
+          text.length > 5 &&
+          text.length < 500 &&
+          !text.includes("Google Forms") &&
+          !questions.includes(text)
+        ) {
+          questions.push(text);
+        }
+      });
+    }
+
+    const cleaned = questions
+      .filter(q => q.length > 2)
+      .slice(0, 50);
+
+    if (cleaned.length === 0) {
+      return res.status(422).json({
+        error:
+          "Could not detect questions from this form. Make sure the form is publicly accessible."
+      });
+    }
+
+    res.json({
+      questions: cleaned
+    });
+
+  } catch (error) {
+    console.error("Form detection error:", error);
+
+    res.status(500).json({
+      error:
+        error.message ||
+        "Unable to read the Google Form."
+    });
+  }
+});
+
+
+/* =========================
+   C PROGRAM GENERATOR
+========================= */
+
 app.post("/api/generate", upload.single("image"), async (req, res) => {
   try {
-    const studentId = (req.body.studentId || "126106043").trim();
+    const studentId = (req.body.studentId || "").trim();
     const questions = (req.body.questions || "").trim();
-    const count = Math.max(1, Math.min(Number(req.body.count || 1), 20));
+    const count = Math.max(
+      1,
+      Math.min(Number(req.body.count || 1), 20)
+    );
+
+    if (!studentId) {
+      return res.status(400).json({
+        error: "Please enter your Student ID."
+      });
+    }
 
     if (!questions && !req.file) {
       return res.status(400).json({
@@ -68,10 +191,7 @@ ${questions}
 `;
 
     const contents = [];
-
-    contents.push({
-      text: prompt
-    });
+    contents.push({ text: prompt });
 
     if (req.file) {
       contents.push({
@@ -84,34 +204,48 @@ ${questions}
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
+
       contents: [
         {
           role: "user",
           parts: contents
         }
       ],
+
       config: {
         responseMimeType: "application/json",
+
         responseSchema: {
           type: Type.OBJECT,
+
           properties: {
             programs: {
               type: Type.ARRAY,
+
               items: {
                 type: Type.OBJECT,
+
                 properties: {
                   question: {
                     type: Type.STRING
                   },
+
                   code: {
                     type: Type.STRING
                   }
                 },
-                required: ["question", "code"]
+
+                required: [
+                  "question",
+                  "code"
+                ]
               }
             }
           },
-          required: ["programs"]
+
+          required: [
+            "programs"
+          ]
         }
       }
     });
@@ -119,35 +253,60 @@ ${questions}
     const text = response.text;
 
     if (!text) {
-      throw new Error("Gemini returned an empty response.");
+      throw new Error(
+        "Gemini returned an empty response."
+      );
     }
 
     const data = JSON.parse(text);
 
-    if (!data.programs || !Array.isArray(data.programs)) {
-      throw new Error("Invalid Gemini response.");
+    if (
+      !data.programs ||
+      !Array.isArray(data.programs)
+    ) {
+      throw new Error(
+        "Invalid Gemini response."
+      );
     }
 
-    const programs = data.programs.slice(0, count).map((program, index) => ({
-      filename: `${studentId}_${index + 1}.c`,
-      question: program.question || `Question ${index + 1}`,
-      code: String(program.code || "").trim()
-    }));
+    const programs = data.programs
+      .slice(0, count)
+      .map((program, index) => ({
+        filename:
+          `${studentId}_${index + 1}.c`,
+
+        question:
+          program.question ||
+          `Question ${index + 1}`,
+
+        code:
+          String(program.code || "").trim()
+      }));
 
     if (programs.length === 0) {
-      throw new Error("No programs were generated.");
+      throw new Error(
+        "No programs were generated."
+      );
     }
 
-    res.json({ programs });
+    res.json({
+      programs
+    });
 
   } catch (error) {
-    console.error("Generation error:", error);
+    console.error(
+      "Generation error:",
+      error
+    );
 
     res.status(500).json({
-      error: error.message || "Something went wrong."
+      error:
+        error.message ||
+        "Something went wrong."
     });
   }
 });
+
 
 app.get("/", (req, res) => {
   res.sendFile("index.html", {
@@ -155,6 +314,9 @@ app.get("/", (req, res) => {
   });
 });
 
+
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`C Assignment Generator running on port ${PORT}`);
+  console.log(
+    `C Assignment Generator running on port ${PORT}`
+  );
 });
