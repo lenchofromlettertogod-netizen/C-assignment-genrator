@@ -47,10 +47,15 @@ app.post("/api/form-questions", async (req, res) => {
       });
     }
 
-    if (
-      url.hostname !== "docs.google.com" ||
-      !url.pathname.startsWith("/forms/")
-    ) {
+    const allowedHost =
+  url.hostname === "docs.google.com" ||
+  url.hostname === "forms.gle";
+
+if (!allowedHost) {
+  return res.status(400).json({
+    error: "Please enter a valid Google Form link."
+  });
+}
       return res.status(400).json({
         error: "Please enter a valid Google Form link."
       });
