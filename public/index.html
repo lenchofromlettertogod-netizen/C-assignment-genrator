@@ -1,79 +1,133 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>C Assignment Generator</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f7fb;color:#172033}
-.wrap{max-width:900px;margin:0 auto;padding:28px 16px 50px}.card{background:white;border:1px solid #e3e7ef;border-radius:18px;padding:22px;box-shadow:0 8px 30px #0000000a;margin-top:16px}
-h1{margin:0 0 7px;font-size:30px}.sub{color:#667085;margin-bottom:20px}label{display:block;font-weight:650;margin:14px 0 7px}
-input,textarea,button{font:inherit}input,textarea{width:100%;border:1px solid #cfd6e2;border-radius:10px;padding:11px}textarea{min-height:160px;resize:vertical}
-.row{display:grid;grid-template-columns:1fr 180px;gap:12px}.btn{border:0;border-radius:10px;padding:12px 16px;cursor:pointer;font-weight:700;background:#111827;color:white;margin-top:16px}
-.btn:disabled{opacity:.5;cursor:not-allowed}.secondary{background:#eef1f6;color:#172033;margin-left:8px}.status{margin-top:14px;color:#667085}
-.file{display:flex;align-items:center;justify-content:space-between;border:1px solid #e2e6ed;border-radius:10px;padding:11px 13px;margin-top:9px}.file button{border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
-small{color:#667085}@media(max-width:650px){.row{grid-template-columns:1fr}.file{gap:10px;flex-direction:column;align-items:flex-start}}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="card">
-    <h1>💻 C Assignment Generator</h1>
-    <div class="sub">Generate separate, downloadable .c files from assignment questions or an image.</div>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <div class="row">
-      <div><label>Student ID</label><input id="studentId" value="126106043" placeholder="e.g. 126106043"></div>
-      <div><label>No. of programs</label><input id="count" type="number" min="1" max="20" value="13"></div>
-    </div>
+  <title>C Assignment Generator</title>
 
-    <label>Assignment questions</label>
-    <textarea id="questions" placeholder="Paste the questions here..."></textarea>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-    <label>Or upload assignment image</label>
-    <input id="image" type="file" accept="image/*">
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f7fb;
+      color: #1f2937;
+    }
 
-    <button class="btn" id="generate">Generate C Files</button>
-    <span class="status" id="status"></span>
-  </div>
+    .container {
+      width: 92%;
+      max-width: 850px;
+      margin: 40px auto;
+    }
 
-  <div class="card" id="results" hidden>
-    <h2>Generated files</h2>
-    <div id="files"></div>
-  </div>
-</div>
-<script>
-const $=id=>document.getElementById(id);
-let programs=[];
-$("generate").onclick=async()=>{
-  const fd=new FormData();
-  fd.append("studentId",$("studentId").value.trim());
-  fd.append("count",$("count").value);
-  fd.append("questions",$("questions").value);
-  if($("image").files[0]) fd.append("image",$("image").files[0]);
-  $("generate").disabled=true;$("status").textContent="Generating and checking files...";
-  $("results").hidden=true;
-  try{
-    const r=await fetch("/api/generate",{method:"POST",body:fd});
-    const data=await r.json();
-    if(!r.ok) throw new Error(data.error||"Generation failed");
-    programs=data.programs;
-    $("files").innerHTML="";
-    programs.forEach((p,i)=>{
-      const row=document.createElement("div");row.className="file";
-      row.innerHTML=`<div><b>${p.filename}</b><br><small>Program ${p.number}</small></div>`;
-      const b=document.createElement("button");b.textContent="Download .c";
-      b.onclick=()=>download(p);
-      row.appendChild(b);$("files").appendChild(row);
-    });
-    $("results").hidden=false;$("status").textContent=`Done — ${programs.length} separate C files generated.`;
-  }catch(e){$("status").textContent="Error: "+e.message}
-  finally{$("generate").disabled=false}
-};
-function download(p){
-  const blob=new Blob([p.code],{type:"text/plain;charset=utf-8"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=p.filename;
-  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-}
-</script>
-</body>
-</html>
+    .card {
+      background: white;
+      padding: 28px;
+      border-radius: 16px;
+      box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      margin-top: 0;
+      text-align: center;
+      color: #111827;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 30px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-top: 18px;
+      margin-bottom: 7px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+
+    .button {
+      width: 100%;
+      margin-top: 24px;
+      padding: 14px;
+      border: none;
+      border-radius: 9px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .button:hover {
+      background: #1d4ed8;
+    }
+
+    .button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 8px;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    .success {
+      display: block;
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .error {
+      display: block;
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .program {
+      margin-top: 22px;
+      padding: 18px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+    }
+
+    .program h3 {
+      margin-top: 0;
+    }
+
+    .question {
+      color: #4b5563;
+      margin-bottom: 12px;
+    }
+
+    .download {
