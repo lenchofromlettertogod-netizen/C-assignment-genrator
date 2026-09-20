@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>C Assignment Generator</title>
 
@@ -13,34 +13,33 @@
 
     body {
       margin: 0;
+      padding: 20px;
       font-family: Arial, sans-serif;
-      background: #f4f7fb;
-      color: #1f2937;
+      background: #f4f6f8;
+      color: #222;
     }
 
     .container {
-      width: 92%;
-      max-width: 850px;
-      margin: 40px auto;
+      max-width: 800px;
+      margin: 0 auto;
     }
 
     .card {
       background: white;
-      padding: 28px;
-      border-radius: 16px;
-      box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     }
 
     h1 {
-      margin-top: 0;
       text-align: center;
-      color: #111827;
+      margin-top: 0;
     }
 
     .subtitle {
       text-align: center;
-      color: #6b7280;
-      margin-bottom: 30px;
+      color: #666;
+      margin-bottom: 25px;
     }
 
     label {
@@ -54,29 +53,28 @@
     textarea {
       width: 100%;
       padding: 12px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
+      border: 1px solid #ccc;
+      border-radius: 7px;
       font-size: 15px;
-      font-family: Arial, sans-serif;
     }
 
     textarea {
-      min-height: 180px;
+      height: 180px;
       resize: vertical;
     }
 
-    input:focus,
-    textarea:focus {
-      outline: none;
-      border-color: #2563eb;
+    .hint {
+      font-size: 13px;
+      color: #777;
+      margin-top: 5px;
     }
 
-    .button {
+    button {
       width: 100%;
-      margin-top: 24px;
-      padding: 14px;
+      margin-top: 22px;
+      padding: 13px;
       border: none;
-      border-radius: 9px;
+      border-radius: 7px;
       background: #2563eb;
       color: white;
       font-size: 16px;
@@ -84,41 +82,36 @@
       cursor: pointer;
     }
 
-    .button:hover {
-      background: #1d4ed8;
-    }
-
-    .button:disabled {
-      background: #9ca3af;
+    button:disabled {
+      background: #999;
       cursor: not-allowed;
     }
 
-    .status {
+    #status {
       margin-top: 20px;
       padding: 12px;
-      border-radius: 8px;
+      border-radius: 7px;
       display: none;
-      white-space: pre-wrap;
     }
 
     .success {
-      display: block;
+      display: block !important;
       background: #dcfce7;
       color: #166534;
     }
 
     .error {
-      display: block;
+      display: block !important;
       background: #fee2e2;
       color: #991b1b;
     }
 
     .program {
-      margin-top: 22px;
+      margin-top: 18px;
       padding: 18px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fafafa;
     }
 
     .program h3 {
@@ -126,8 +119,337 @@
     }
 
     .question {
-      color: #4b5563;
       margin-bottom: 12px;
+      color: #555;
     }
 
     .download {
+      display: inline-block;
+      padding: 10px 14px;
+      background: #16a34a;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+
+    .download:hover {
+      background: #15803d;
+    }
+
+    .footer {
+      text-align: center;
+      color: #777;
+      font-size: 13px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <div class="card">
+
+      <h1>C Assignment Generator</h1>
+
+      <div class="subtitle">
+        Generate separate C programs from your assignment.
+      </div>
+
+
+      <label for="studentId">Student ID</label>
+
+      <input
+        type="text"
+        id="studentId"
+        placeholder="Enter Student ID"
+      >
+
+      <div class="hint">
+        Example: 126106043
+      </div>
+
+
+      <label for="count">Number of Programs</label>
+
+      <input
+        type="number"
+        id="count"
+        value="1"
+        min="1"
+        max="20"
+      >
+
+      <div class="hint">
+        Enter 1 to 20.
+      </div>
+
+
+      <label for="questions">Assignment Questions</label>
+
+      <textarea
+        id="questions"
+        placeholder="Paste your assignment questions here..."
+      ></textarea>
+
+
+      <label for="image">Or Upload Assignment Image</label>
+
+      <input
+        type="file"
+        id="image"
+        accept="image/*"
+      >
+
+      <div class="hint">
+        You can paste questions or upload an image.
+      </div>
+
+
+      <button id="generateBtn">
+        Generate C Programs
+      </button>
+
+
+      <div id="status"></div>
+
+      <div id="results"></div>
+
+    </div>
+
+
+    <div class="footer">
+      C Assignment Generator
+    </div>
+
+  </div>
+
+
+  <script>
+
+    const generateBtn = document.getElementById("generateBtn");
+
+    generateBtn.addEventListener("click", generatePrograms);
+
+
+    async function generatePrograms() {
+
+      const studentId =
+        document.getElementById("studentId").value.trim();
+
+      const count =
+        parseInt(document.getElementById("count").value);
+
+      const questions =
+        document.getElementById("questions").value.trim();
+
+      const imageInput =
+        document.getElementById("image");
+
+      const status =
+        document.getElementById("status");
+
+      const results =
+        document.getElementById("results");
+
+
+      results.innerHTML = "";
+      status.className = "";
+      status.style.display = "none";
+
+
+      if (!studentId) {
+        showError("Please enter your Student ID.");
+        return;
+      }
+
+
+      if (!count || count < 1 || count > 20) {
+        showError("Number of programs must be between 1 and 20.");
+        return;
+      }
+
+
+      if (!questions && imageInput.files.length === 0) {
+        showError(
+          "Please enter questions or upload an assignment image."
+        );
+        return;
+      }
+
+
+      const formData = new FormData();
+
+      formData.append("studentId", studentId);
+      formData.append("count", count);
+      formData.append("questions", questions);
+
+
+      if (imageInput.files.length > 0) {
+        formData.append(
+          "image",
+          imageInput.files[0]
+        );
+      }
+
+
+      generateBtn.disabled = true;
+      generateBtn.textContent = "Generating...";
+
+
+      status.style.display = "block";
+      status.textContent =
+        "Generating C programs. Please wait...";
+
+
+      try {
+
+        const response = await fetch(
+          "/api/generate",
+          {
+            method: "POST",
+            body: formData
+          }
+        );
+
+
+        const data = await response.json();
+
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Generation failed."
+          );
+        }
+
+
+        if (
+          !data.programs ||
+          !Array.isArray(data.programs) ||
+          data.programs.length === 0
+        ) {
+          throw new Error(
+            "No programs were returned."
+          );
+        }
+
+
+        status.className = "success";
+
+        status.textContent =
+          data.programs.length +
+          " program(s) generated successfully!";
+
+
+        data.programs.forEach(
+          (program, index) => {
+
+            const box =
+              document.createElement("div");
+
+            box.className = "program";
+
+
+            const title =
+              document.createElement("h3");
+
+            title.textContent =
+              program.filename ||
+              `${studentId}_${index + 1}.c`;
+
+
+            const question =
+              document.createElement("div");
+
+            question.className = "question";
+
+            question.textContent =
+              program.question ||
+              `Question ${index + 1}`;
+
+
+            const download =
+              document.createElement("a");
+
+            download.className = "download";
+
+            download.textContent =
+              "Download " +
+              (
+                program.filename ||
+                `${studentId}_${index + 1}.c`
+              );
+
+
+            const code =
+              String(program.code || "");
+
+
+            const blob =
+              new Blob(
+                [code],
+                {
+                  type: "text/plain"
+                }
+              );
+
+
+            const url =
+              URL.createObjectURL(blob);
+
+
+            download.href = url;
+
+            download.download =
+              program.filename ||
+              `${studentId}_${index + 1}.c`;
+
+
+            box.appendChild(title);
+            box.appendChild(question);
+            box.appendChild(download);
+
+            results.appendChild(box);
+
+          }
+        );
+
+
+      } catch (error) {
+
+        showError(
+          error.message ||
+          "Something went wrong."
+        );
+
+      } finally {
+
+        generateBtn.disabled = false;
+
+        generateBtn.textContent =
+          "Generate C Programs";
+
+      }
+
+    }
+
+
+    function showError(message) {
+
+      const status =
+        document.getElementById("status");
+
+      status.className = "error";
+
+      status.style.display = "block";
+
+      status.textContent = message;
+
+    }
+
+  </script>
+
+</body>
+</html>
